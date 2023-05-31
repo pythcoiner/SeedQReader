@@ -29,3 +29,6 @@ Run under Windows:
 python seedqreader.py
 ```
 
+TODO:
+- Support UR format
+

@@ -57,8 +57,8 @@ class MultiQRCode(QRCode):
         # print(f'MultiQRCode.append({data})')
         sequence = data[0]
         total_sequences = data[1]
-
         data = data[2]
+
         if not self.is_init:
             self.data_init(total_sequences)
             self.is_init = True
@@ -67,6 +67,7 @@ class MultiQRCode(QRCode):
             self.data_stack[sequence-1] = data
         else:
             if data != self.data_stack[sequence-1]:
+                print(f"{data} != {self.data_stack[sequence-1]}")
                 raise ValueError('Same sequences have different data!')
         self.check_complete()
 
@@ -194,8 +195,6 @@ class ReadQR(QThread):
             if not self.qr_data:
                 self.qr_data = MultiQRCode()
 
-            # print('Multipart QR')
-
             #  sequence is 1 digit
             if data[2:4] == 'of':
                 # print('if')
@@ -205,6 +204,7 @@ class ReadQR(QThread):
                     data = data[6:]
                 elif data[6] == ' ':
                     digit_b = data[4:6]
+                    data = data[7:]
                 else:
                     raise Exception('Cannot decode multipart QR Code')
 

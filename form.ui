@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
-    <height>600</height>
+    <width>812</width>
+    <height>666</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -20,14 +20,14 @@
       <x>0</x>
       <y>0</y>
       <width>811</width>
-      <height>611</height>
+      <height>650</height>
      </rect>
     </property>
     <property name="accessibleName">
      <string>Read</string>
     </property>
     <property name="currentIndex">
-     <number>0</number>
+     <number>1</number>
     </property>
     <widget class="QWidget" name="read_tab">
      <attribute name="title">
@@ -81,14 +81,63 @@
      <widget class="QPushButton" name="btn_start_read">
       <property name="geometry">
        <rect>
-        <x>20</x>
-        <y>310</y>
+        <x>10</x>
+        <y>320</y>
         <width>161</width>
         <height>27</height>
        </rect>
       </property>
       <property name="text">
        <string>Start Read</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="read_from_file">
+      <property name="geometry">
+       <rect>
+        <x>620</x>
+        <y>320</y>
+        <width>161</width>
+        <height>27</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Read from file</string>
+      </property>
+     </widget>
+     <widget class="QComboBox" name="combo_camera">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>30</y>
+        <width>111</width>
+        <height>27</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QLabel" name="split_size_2">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>10</y>
+        <width>91</width>
+        <height>17</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Camera:</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="btn_camera_update">
+      <property name="geometry">
+       <rect>
+        <x>90</x>
+        <y>3</y>
+        <width>31</width>
+        <height>27</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string/>
       </property>
      </widget>
     </widget>
@@ -109,8 +158,8 @@
      <widget class="QLabel" name="video_out">
       <property name="geometry">
        <rect>
-        <x>170</x>
-        <y>90</y>
+        <x>250</x>
+        <y>140</y>
         <width>450</width>
         <height>450</height>
        </rect>
@@ -130,6 +179,291 @@
       </property>
       <property name="text">
        <string>Generate</string>
+      </property>
+     </widget>
+     <widget class="QSlider" name="send_slider">
+      <property name="geometry">
+       <rect>
+        <x>380</x>
+        <y>100</y>
+        <width>291</width>
+        <height>28</height>
+       </rect>
+      </property>
+      <property name="minimum">
+       <number>10</number>
+      </property>
+      <property name="maximum">
+       <number>500</number>
+      </property>
+      <property name="singleStep">
+       <number>10</number>
+      </property>
+      <property name="value">
+       <number>100</number>
+      </property>
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+      <property name="tickInterval">
+       <number>15</number>
+      </property>
+     </widget>
+     <widget class="QCheckBox" name="no_split">
+      <property name="geometry">
+       <rect>
+        <x>690</x>
+        <y>100</y>
+        <width>96</width>
+        <height>22</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>No split</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="btn_clear">
+      <property name="geometry">
+       <rect>
+        <x>120</x>
+        <y>100</y>
+        <width>71</width>
+        <height>27</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Clear</string>
+      </property>
+     </widget>
+     <widget class="QRadioButton" name="key_1">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>400</y>
+        <width>116</width>
+        <height>22</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Key 1</string>
+      </property>
+     </widget>
+     <widget class="QRadioButton" name="key_2">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>420</y>
+        <width>116</width>
+        <height>22</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Key 2</string>
+      </property>
+     </widget>
+     <widget class="QRadioButton" name="key_3">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>440</y>
+        <width>116</width>
+        <height>22</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Key 3</string>
+      </property>
+     </widget>
+     <widget class="QRadioButton" name="key_4">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>460</y>
+        <width>116</width>
+        <height>22</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Key 4</string>
+      </property>
+     </widget>
+     <widget class="QRadioButton" name="key_5">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>480</y>
+        <width>116</width>
+        <height>22</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Key 5</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="btn_save">
+      <property name="geometry">
+       <rect>
+        <x>200</x>
+        <y>100</y>
+        <width>71</width>
+        <height>27</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Save</string>
+      </property>
+     </widget>
+     <widget class="QRadioButton" name="desc_1">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>220</y>
+        <width>116</width>
+        <height>22</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Descriptor 1</string>
+      </property>
+      <property name="checked">
+       <bool>true</bool>
+      </property>
+     </widget>
+     <widget class="QRadioButton" name="desc_3">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>260</y>
+        <width>116</width>
+        <height>22</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Descriptor 3</string>
+      </property>
+     </widget>
+     <widget class="QRadioButton" name="psbt_1">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>290</y>
+        <width>116</width>
+        <height>22</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>PSBT 1</string>
+      </property>
+     </widget>
+     <widget class="QRadioButton" name="desc_2">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>240</y>
+        <width>116</width>
+        <height>22</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Descriptor 2</string>
+      </property>
+     </widget>
+     <widget class="QRadioButton" name="psbt_2">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>310</y>
+        <width>116</width>
+        <height>22</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>PSBT 2</string>
+      </property>
+     </widget>
+     <widget class="QRadioButton" name="psbt_3">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>330</y>
+        <width>116</width>
+        <height>22</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>PSBT 3</string>
+      </property>
+     </widget>
+     <widget class="QRadioButton" name="psbt_4">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>350</y>
+        <width>116</width>
+        <height>22</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>PSBT 4</string>
+      </property>
+     </widget>
+     <widget class="QRadioButton" name="psbt_5">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>370</y>
+        <width>116</width>
+        <height>22</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>PSBT 5</string>
+      </property>
+     </widget>
+     <widget class="QComboBox" name="combo_type">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>180</y>
+        <width>111</width>
+        <height>27</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QComboBox" name="combo_format">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>140</y>
+        <width>111</width>
+        <height>27</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QLabel" name="steps">
+      <property name="geometry">
+       <rect>
+        <x>440</x>
+        <y>590</y>
+        <width>67</width>
+        <height>17</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+     </widget>
+     <widget class="QLabel" name="split_size">
+      <property name="geometry">
+       <rect>
+        <x>284</x>
+        <y>104</y>
+        <width>91</width>
+        <height>17</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Split size:</string>
       </property>
      </widget>
     </widget>

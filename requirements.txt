@@ -1,9 +1,12 @@
+embit==0.7.0
 numpy==1.24.3
 opencv-python==4.7.0.72
 Pillow==9.5.0
 pypng==0.20220715.0
 PySide2==5.13.2
+PyYAML==6.0
 pyzbar==0.1.9
 qrcode==7.4.2
 shiboken2==5.13.2
 typing_extensions==4.6.2
+urtypes @ git+https://github.com/selfcustody/urtypes.git@7fb280eab3b3563dfc57d2733b0bf5cbc0a96a6a

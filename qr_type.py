@@ -1,0 +1,4 @@
+
+SPECTER = "specter"
+UR = "ur"
+

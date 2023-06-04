@@ -1,14 +1,16 @@
 import sys
 import os
 import re
-from typing import List
 
 from dataclasses import dataclass, field
 
 from pathlib import Path
 
-from PySide2.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QPlainTextEdit, QProgressBar
-from PySide2.QtGui import QImage, QPixmap, QIcon, QPalette, QColor
+from yaml import load, dump
+from yaml.loader import SafeLoader as Loader
+
+from PySide2.QtWidgets import QApplication, QMainWindow
+from PySide2.QtGui import QImage, QPixmap, QPalette, QColor
 from PySide2.QtCore import Qt, QFile, QThread, Signal
 from PySide2.QtUiTools import QUiLoader
 from PySide2.QtGui import QTextOption
@@ -21,8 +23,19 @@ import qrcode
 
 import cv2
 
+import qr_type
 
-MAX_LEN = 200
+from foundation.ur_decoder import URDecoder
+from foundation.ur_encoder import UREncoder
+from foundation.ur import UR
+
+from urtypes.crypto import PSBT as UR_PSBT
+from urtypes.crypto import Account, Output
+from urtypes.bytes import Bytes
+
+from embit.psbt import PSBT
+
+MAX_LEN = 100
 QR_DELAY = 400
 
 def to_str(bin_):
@@ -35,6 +48,7 @@ class QRCode:
     total_sequences: int = 0
     sequences_count: int = 0
     is_completed: bool = False
+    qr_type = None
 
     def append(self, data: str):
         self.data_init(1)
@@ -52,8 +66,29 @@ class MultiQRCode(QRCode):
     data_stack: list = field(default_factory=list)
     is_init: bool = False
     current: int = 0
+    total_sequences = None
+    qr_type = None
+    data_type = None
+    decoder = None
+    encoder = None
+
+    def step(self):
+        if self.qr_type == qr_type.SPECTER:
+            self.total_sequences = len(self.data_stack)
+
+            return f"{self.current + 1}/{self.total_sequences}"
+
+        elif self.qr_type == qr_type.UR:
+            return f"{self.current + 1}/{self.total_sequences}"
 
     def append(self, data: tuple):
+        if self.qr_type == qr_type.SPECTER:
+            self.append_specter(data)
+
+        elif self.qr_type == qr_type.UR:
+            self.append_ur(data)
+
+    def append_specter(self, data: tuple):
         # print(f'MultiQRCode.append({data})')
         sequence = data[0]
         total_sequences = data[1]
@@ -69,14 +104,21 @@ class MultiQRCode(QRCode):
             if data != self.data_stack[sequence-1]:
                 print(f"{data} != {self.data_stack[sequence-1]}")
                 raise ValueError('Same sequences have different data!')
-        self.check_complete()
+        self.check_complete_specter()
+
+    def append_ur(self, data: tuple):
+        if not self.decoder:
+            self.decoder = URDecoder()
+
+        self.decoder.receive_part(data)
+
+        self.check_complete_ur()
 
     def data_init(self, sequences: int):
-        # print('data_init()')
         super().data_init(sequences)
         self.data_stack = [None] * sequences
 
-    def check_complete(self):
+    def check_complete_specter(self):
         fill_sequences = 0
         for i in self.data_stack:
             if i:
@@ -92,23 +134,86 @@ class MultiQRCode(QRCode):
                 data += i
             self.data = data
 
-    @staticmethod
-    def from_string(data):
+    def check_complete_ur(self):
+        if self.decoder.is_complete():
+            if self.decoder.is_success():
+                self.is_completed = True
+                cbor = self.decoder.result_message().cbor
+                _type = self.decoder.result_message().type
+                #  XPub
+                if _type == 'crypto-account':
+                    self.data = Account.from_cbor(cbor).output_descriptors[0].descriptor()
+                #  PSBT
+                elif _type == 'crypto-psbt':
+                    self.data = UR_PSBT.from_cbor(cbor).data
+                    if type(self.data) is bytes:
+                        self.data = PSBT.parse(self.data).to_string()
 
-        if len(data) > MAX_LEN:
+                #  Descriptor
+                elif _type == 'crypto-output':
+                    self.data = Output.from_cbor(cbor).descriptor()
+                #  bytes
+                elif _type == 'bytes':
+                    print('bytes')
+                    self.data = Bytes.from_cbor(cbor).data.decode('utf-8')
+
+                else:
+                    print(f"Type not yet implemented: {type}")
+                    return
+
+                print(f"{_type}:{self.data}")
+
+            else:
+                print("fail to complete UR parsing: ", end='')
+                print(self.decoder.result_error())
+
+    @staticmethod
+    def from_string(data, max=MAX_LEN, type=None, format=None):
+
+        if (max and len(data) > max) or format == 'UR':
             out = MultiQRCode()
             out.data = data
+            if format == 'UR':
+                out.qr_type = qr_type.UR
+            elif format == 'Specter':
+                out.qr_type = qr_type.SPECTER
 
-            while len(data) > MAX_LEN:
-                sequence = data[:MAX_LEN]
-                data = data[MAX_LEN:]
-                out.data_stack.append(sequence)
-            if len(data):
-                out.data_stack.append(data)
+            if format == 'Specter':
+                while len(data) > max:
+                    sequence = data[:max]
+                    data = data[max:]
+                    out.data_stack.append(sequence)
+                if len(data):
+                    out.data_stack.append(data)
 
-            out.total_sequences = len(out.data_stack)
-            out.sequences_count = out.total_sequences
-            out.is_completed = True
+                out.total_sequences = len(out.data_stack)
+                out.sequences_count = out.total_sequences
+                out.is_completed = True
+
+            elif format == 'UR':
+                _UR = None
+                if type == 'PSBT':
+                    out.data_type = 'crypto-psbt'
+                    data = PSBT.from_string(data).serialize()
+                    _UR = UR_PSBT
+                elif type == 'Descriptor':
+                    out.data_type = 'bytes'
+                    _UR = Bytes
+                elif type == 'Key':
+                    print("key")
+                    out.data_type = 'bytes'
+                    _UR = Bytes
+                elif type == 'Bytes':
+                    out.data_type = 'bytes'
+                    _UR = Bytes
+                else:
+                    return
+                if not max:
+                    max = 100000
+                ur = UR(out.data_type, _UR(data).to_cbor())
+                out.encoder = UREncoder(ur, max)
+                out.total_sequences = out.encoder.fountain_encoder.seq_len()
+
         else:
             out = QRCode()
             out.data = data
@@ -117,18 +222,25 @@ class MultiQRCode(QRCode):
         return out
 
     def next(self) -> str:
-        self.current += 1
-        if self.current >= self.total_sequences:
-            self.current = 0
+        if self.qr_type == qr_type.SPECTER:
+            self.current += 1
+            if self.current >= self.total_sequences:
+                self.current = 0
 
-        data = self.data_stack[self.current]
+            data = self.data_stack[self.current]
 
-        digit_a = self.current + 1
-        digit_b = self.total_sequences
+            digit_a = self.current + 1
+            digit_b = self.total_sequences
 
-        data = f"p{digit_a}of{digit_b} {data}"
+            data = f"p{digit_a}of{digit_b} {data}"
 
-        return data
+            return data
+
+        elif self.qr_type == qr_type.UR:
+            self.current = self.encoder.fountain_encoder.seq_num
+            data = self.encoder.next_part().upper()
+            print(data)
+            return data
 
 
 class ReadQR(QThread):
@@ -142,15 +254,19 @@ class ReadQR(QThread):
         self.finished.connect(self.on_finnish)
         self.qr_data: QRCode | MultiQRCode = None
         self.capture = None
+        self.end = False
 
     def run(self):
         self.qr_data: QRCode | MultiQRCode = None
         # Initialize the camera
-        self.capture = cv2.VideoCapture(0)
+        camera_id = self.parent.get_camera_id()
 
-        end = False
+        if camera_id is None:
+            return
+        self.capture = cv2.VideoCapture(camera_id)
 
-        while not end:
+        self.parent.ui.btn_start_read.setText('Stop')
+        while not self.end:
             self.msleep(30)
 
             ret, frame = self.capture.read()
@@ -183,44 +299,29 @@ class ReadQR(QThread):
                 if self.qr_data.is_completed:
                     self.video_stream.emit(None)
                     self.data.emit(self.qr_data.data)
+                    if self.qr_data.qr_type is None:
+                        print(f"QRCode:{self.qr_data.data}")
                     break
-
+        if self.end:
+            self.video_stream.emit(None)
         return
 
     def decode(self, data):
 
         #  Multipart QR Code case
-        if data[0] == 'p':
+
+        # specter format
+        if re.match(r'^p\d+of\d+\s', data):
 
             if not self.qr_data:
                 self.qr_data = MultiQRCode()
+                self.qr_data.qr_type = qr_type.SPECTER
 
-            #  sequence is 1 digit
-            if data[2:4] == 'of':
-                # print('if')
-                digit_a = data[1]
-                if data[5] == ' ':
-                    digit_b = data[4]
-                    data = data[6:]
-                elif data[6] == ' ':
-                    digit_b = data[4:6]
-                    data = data[7:]
-                else:
-                    raise Exception('Cannot decode multipart QR Code')
+            header = data.split(' ')[0][1:].split('of')
+            data = ' '.join(data.split(' ')[1:])
 
-            #  sequence is 2 digit
-            elif data[3:5] == 'of':
-                # print('elif')
-                digit_a = data[1:3]
-                if data[7] == ' ':
-                    digit_b = data[5:7]
-                    data = data[8:]
-                else:
-                    raise Exception('Cannot decode multipart QR Code')
-
-            else:
-                # print('else')
-                raise Exception('Cannot decode multipart QR Code')
+            digit_a = header[0]
+            digit_b = header[1]
 
             self.qr_data.append((int(digit_a), int(digit_b), data))
 
@@ -229,15 +330,26 @@ class ReadQR(QThread):
             self.parent.ui.read_progress.setFormat(f"{self.qr_data.sequences_count}/{self.qr_data.total_sequences}")
             self.parent.ui.read_progress.setVisible(True)
 
+        elif re.match(r'^UR:', data):
+
+            if not self.qr_data:
+                self.qr_data = MultiQRCode()
+                self.qr_data.qr_type = qr_type.UR
+
+            self.qr_data.append(data)
+
+
         else:
             self.qr_data = QRCode()
             self.qr_data.append(data)
 
     def on_finnish(self):
-        self.capture.release()
+        if self.capture:
+            self.capture.release()
         self.parent.ui.read_progress.setValue(0)
         self.parent.ui.read_progress.setVisible(False)
         self.parent.ui.read_progress.setFormat('')
+        self.parent.ui.btn_start_read.setText('Start read')
 
 
 class DisplayQR(QThread):
@@ -252,11 +364,22 @@ class DisplayQR(QThread):
 
     def run(self):
         self.stop = False
-        if self.qr_data.total_sequences > 1:
+        if self.qr_data.total_sequences > 1 or self.qr_data.qr_type == qr_type.UR:
             while not self.stop:
                 data = self.qr_data.next()
+
                 self.display_qr(data)
-                self.msleep(QR_DELAY)
+                self.parent.ui.steps.setText(self.qr_data.step())
+                if self.qr_data.total_sequences == 1:
+                    break
+                if not self.stop:
+                    self.msleep(QR_DELAY)
+
+            if self.qr_data.total_sequences == 1:
+                while not self.stop:
+                    self.msleep(QR_DELAY)
+
+            self.parent.ui.steps.setText('')
 
         elif self.qr_data.total_sequences == 1:
             data = self.qr_data.data
@@ -265,7 +388,11 @@ class DisplayQR(QThread):
                 self.msleep(QR_DELAY)
 
     def display_qr(self, data):
-        img = qrcode.make(data)
+
+        qr = qrcode.QRCode()
+        qr.add_data(data)
+        qr.make(fit=False)
+        img = qr.make_image()
         pil_image = img.convert("RGB")
         qimage = ImageQt.ImageQt(pil_image)
         qimage = qimage.convertToFormat(QImage.Format_RGB888)
@@ -296,13 +423,54 @@ class MainWindow(QMainWindow):
         ui_file.close()
         self.setWindowTitle("SeedQReader")
 
-
         self.ui.show()
+
+        self.load_config()
 
         self.ui.btn_start_read.clicked.connect(self.on_qr_read)
         self.ui.btn_generate.clicked.connect(self.on_btn_generate)
+        self.ui.btn_clear.clicked.connect(self.on_btn_clear)
+        self.ui.send_slider.valueChanged.connect(self.on_slider_move)
 
         self.ui.data_out.setWordWrapMode(QTextOption.WrapAnywhere)
+
+        #  init radio button
+
+        self.ui.desc_1.toggled.connect(self.on_radio_toggled)
+        self.ui.desc_2.toggled.connect(self.on_radio_toggled)
+        self.ui.desc_3.toggled.connect(self.on_radio_toggled)
+
+        self.ui.psbt_1.toggled.connect(self.on_radio_toggled)
+        self.ui.psbt_2.toggled.connect(self.on_radio_toggled)
+        self.ui.psbt_3.toggled.connect(self.on_radio_toggled)
+        self.ui.psbt_4.toggled.connect(self.on_radio_toggled)
+        self.ui.psbt_5.toggled.connect(self.on_radio_toggled)
+
+        self.ui.key_1.toggled.connect(self.on_radio_toggled)
+        self.ui.key_2.toggled.connect(self.on_radio_toggled)
+        self.ui.key_3.toggled.connect(self.on_radio_toggled)
+        self.ui.key_4.toggled.connect(self.on_radio_toggled)
+        self.ui.key_5.toggled.connect(self.on_radio_toggled)
+
+        self.ui.desc_1.setChecked(True)
+        self.radio_selected = 'desc_1'
+        self.on_radio_toggled()
+
+        self.ui.btn_save.clicked.connect(self.on_btn_save)
+
+        self.ui.combo_format.addItems(['Specter', 'UR'])
+        self.format = self.ui.combo_format.currentText()
+        self.ui.combo_format.currentIndexChanged.connect(self.on_format_change)
+        self.ui.combo_type.currentIndexChanged.connect(self.on_data_type_change)
+
+        self.ui.combo_type.addItems(['Descriptor', 'PSBT', 'Key', 'Bytes'])
+        self.ui.combo_type.hide()
+        self.data_type = None
+
+        self.ui.btn_camera_update.clicked.connect(self.on_camera_update)
+
+        self.on_slider_move()
+        self.on_camera_update()
 
         self.init_qr()
 
@@ -316,15 +484,84 @@ class MainWindow(QMainWindow):
         self.display_qr.video_stream.connect(self.on_qr_display)
         self.stop_display.connect(self.display_qr.on_stop)
 
+    def load_config(self):
+
+        if not os.path.exists('config'):
+            f = open('config', 'w')
+            f.close()
+
+        with open('config', 'r') as f:
+            data = load(f, Loader=Loader)
+
+        if not data:
+            data = {}
+
+        self.config = data
+
+    def dump_config(self):
+        with open('config', 'w') as f:
+            dump(self.config, f)
+
+    @staticmethod
+    def list_available_cameras():
+        index = 0
+        available_cameras = []
+        while True:
+            cap = cv2.VideoCapture(index)
+            if not cap.isOpened():
+                if (index - int(available_cameras[-1])) > 2:
+                    break
+                else:
+                    index += 1
+                    continue
+
+            available_cameras.append(str(index))
+            cap.release()
+            index += 1
+
+        return available_cameras
+
+    def get_camera_id(self) -> int | None:
+        try:
+            id = self.ui.combo_camera.currentText()
+            return int(id)
+        except :
+            return None
+
+    def on_camera_update(self):
+        last = self.get_camera_id()
+
+        cameras = self.list_available_cameras()
+        self.ui.combo_camera.clear()
+        self.ui.combo_camera.addItems(cameras)
+        if last and str(last) in cameras:
+            self.ui.combo_type.setCurrentText(str(last))
+
+    def on_format_change(self):
+        self.format = self.ui.combo_format.currentText()
+
+        if self.format != 'Specter':
+            self.ui.combo_type.show()
+            self.on_data_type_change()
+
+        else:
+            self.ui.combo_type.hide()
+            self.data_type = None
+
+    def on_data_type_change(self):
+        if self.format == 'UR':
+            self.data_type = self.ui.combo_type.currentText()
+
     def on_qr_display(self, frame):
         self.ui.video_out.setPixmap(frame)
 
     def on_qr_read(self):
         if not self.read_qr.isRunning():
+            self.read_qr.end = False
             self.ui.data_in.setPlainText('')
             self.read_qr.start()
         else:
-            print("read_qr already running!")
+            self.read_qr.end = True
 
     def on_qr_data_read(self, data):
         self.ui.data_in.setWordWrapMode(QTextOption.WrapAnywhere)
@@ -333,11 +570,24 @@ class MainWindow(QMainWindow):
     def upd_camera_stream(self, frame):
         self.ui.video_in.setPixmap(frame)
 
-    def on_btn_generate(self):
-        if not self.display_qr.isRunning():
-            data = self.ui.data_out.toPlainText()
+    def on_slider_move(self):
+        self.ui.split_size.setText(f"Split size: {self.ui.send_slider.value()}")
 
-            qr = MultiQRCode.from_string(data)
+    def on_btn_generate(self):
+        data: str = self.ui.data_out.toPlainText()
+        data.replace(' ', '').replace('\n', '')
+        if not self.display_qr.isRunning() and data != '':
+
+            if self.ui.no_split.isChecked():
+                _max = None
+            else:
+                _max = self.ui.send_slider.value()
+
+            # print(f"max={_max}")
+            qr = MultiQRCode.from_string(data, max=_max, type=self.data_type, format=self.format)
+            if not qr:
+                print("error creating MultiQRCode")
+                return
             self.display_qr.qr_data = qr
             self.display_qr.start()
 
@@ -346,6 +596,85 @@ class MainWindow(QMainWindow):
         else:
             self.stop_display.emit()
             self.ui.btn_generate.setText('Generate')
+
+    def on_btn_clear(self):
+        self.ui.data_out.setPlainText('')
+
+    def select_data_type(self, data_type):
+        self.data_type = data_type
+        self.ui.combo_type.setCurrentText(data_type)
+
+    def radio_select(self):
+        if self.ui.desc_1.isChecked():
+            self.radio_selected = 'desc_1'
+            self.select_data_type('Descriptor')
+
+        elif self.ui.desc_2.isChecked():
+            self.radio_selected = 'desc_2'
+            self.select_data_type('Descriptor')
+
+        elif self.ui.desc_3.isChecked():
+            self.radio_selected = 'desc_3'
+            self.select_data_type('Descriptor')
+
+        elif self.ui.psbt_1.isChecked():
+            self.radio_selected = 'psbt_1'
+            self.select_data_type('PSBT')
+
+        elif self.ui.psbt_2.isChecked():
+            self.radio_selected = 'psbt_2'
+            self.select_data_type('PSBT')
+
+        elif self.ui.psbt_3.isChecked():
+            self.radio_selected = 'psbt_3'
+            self.select_data_type('PSBT')
+
+        elif self.ui.psbt_4.isChecked():
+            self.radio_selected = 'psbt_4'
+            self.select_data_type('PSBT')
+
+        elif self.ui.psbt_5.isChecked():
+            self.radio_selected = 'psbt_5'
+            self.select_data_type('PSBT')
+
+        elif self.ui.key_1.isChecked():
+            self.radio_selected = 'key_1'
+            self.select_data_type('Key')
+
+        elif self.ui.key_2.isChecked():
+            self.radio_selected = 'key_2'
+            self.select_data_type('Key')
+
+        elif self.ui.key_3.isChecked():
+            self.radio_selected = 'key_3'
+            self.select_data_type('Key')
+
+        elif self.ui.key_4.isChecked():
+            self.radio_selected = 'key_4'
+            self.select_data_type('Key')
+
+        elif self.ui.key_5.isChecked():
+            self.radio_selected = 'key_5'
+            self.select_data_type('Key')
+
+        else:
+            return
+
+    def on_radio_toggled(self):
+
+        self.radio_select()
+        self.load_config()
+
+        if self.radio_selected in self.config.keys():
+            self.ui.data_out.setPlainText(self.config[self.radio_selected])
+        else:
+            self.ui.data_out.setPlainText('')
+
+    def on_btn_save(self):
+
+        self.load_config()
+        self.config[self.radio_selected] = self.ui.data_out.toPlainText()
+        self.dump_config()
 
 
 if __name__ == '__main__':

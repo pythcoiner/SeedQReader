@@ -30,5 +30,7 @@ python seedqreader.py
 ```
 
 TODO:
+- Let user choose QR code size (slider?)
+- Add clear buttons on send input field
 - Support UR format
 

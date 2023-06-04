@@ -325,7 +325,7 @@ class ReadQR(QThread):
 
             self.qr_data.append((int(digit_a), int(digit_b), data))
 
-            progress = round(self.qr_data.sequences_count / self.qr_data.total_sequences*100)
+            progress = round(self.qr_data.sequences_count / self.qr_data.total_sequences * 100)
             self.parent.ui.read_progress.setValue(progress)
             self.parent.ui.read_progress.setFormat(f"{self.qr_data.sequences_count}/{self.qr_data.total_sequences}")
             self.parent.ui.read_progress.setVisible(True)
@@ -338,10 +338,19 @@ class ReadQR(QThread):
 
             self.qr_data.append(data)
 
+            progress = self.qr_data.decoder.estimated_percent_complete() * 100
+            self.qr_data.total_sequences = self.qr_data.decoder.expected_part_count()
+            self.qr_data.sequences_count = self.qr_data.decoder.processed_parts_count()
+            self.parent.ui.read_progress.setValue(progress)
+            self.parent.ui.read_progress.setFormat(f"{self.qr_data.sequences_count}/{self.qr_data.total_sequences}")
+            self.parent.ui.read_progress.setVisible(True)
+
 
         else:
             self.qr_data = QRCode()
             self.qr_data.append(data)
+
+
 
     def on_finnish(self):
         if self.capture:

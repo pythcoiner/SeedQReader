@@ -233,6 +233,7 @@ class MultiQRCode(QRCode):
             digit_b = self.total_sequences
 
             data = f"p{digit_a}of{digit_b} {data}"
+            print(data)
 
             return data
 

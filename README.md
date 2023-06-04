@@ -1,17 +1,17 @@
 SeedQReader
 ---
 
-SeedQReader is a simple tool i made for communicate with my SeedSigner.
+SeedQReader is a simple tool made for communicate with airgapped Bitcoin Signer.
 
 ![SeedQReader](screenshot.png)
 
 It actually can send/receive:
 - 1 Frame QRCodes
-- Multiframes QRCodes using the `Specter` format (1of3 dddddddddddddddddddddddddddddddddddddddddddd)
+- Multiframes QRCodes using the `Specter` format (_of_)
+- Multiframes QRCodes using the `UR` format are partially supported (PSBT and Bytes)
 
-The 'split' size can be set with `MAX_LEN`
-
-Delay between 2 frames can be set with `QR_DELAY`
+Dependencies:
+opencv might be installed
 
 Install:
 Go into this repo and run:
@@ -29,8 +29,6 @@ Run under Windows:
 python seedqreader.py
 ```
 
-TODO:
-- Let user choose QR code size (slider?)
-- Add clear buttons on send input field
-- Support UR format
+If you want i build more cool tools you can support me with bitcoin:
+`bc1q5pgfrt09f4vuxyryg95erge38nw94usvpe5gg0`
 

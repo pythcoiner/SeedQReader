@@ -423,7 +423,7 @@ class MainWindow(QMainWindow):
     stop_display = Signal()
 
     def __init__(self):
-        QMainWindow.__init__(self)
+        super().__init__()
 
         # Set up the main window
         loader = QUiLoader()
@@ -433,8 +433,9 @@ class MainWindow(QMainWindow):
         self.ui = loader.load(ui_file, self)
         ui_file.close()
         self.setWindowTitle("SeedQReader")
+        self.setFixedSize(812,670)
 
-        self.ui.show()
+        self.setCentralWidget(self.ui)
 
         self.load_config()
 
@@ -719,5 +720,6 @@ if __name__ == '__main__':
     app.setPalette(palette)
 
     main_win = MainWindow()
-    sys.exit(app.exec())
+    main_win.show()
+    app.exec()
 

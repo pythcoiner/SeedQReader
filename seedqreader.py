@@ -9,11 +9,11 @@ from pathlib import Path
 from yaml import load, dump
 from yaml.loader import SafeLoader as Loader
 
-from PySide2.QtWidgets import QApplication, QMainWindow
-from PySide2.QtGui import QImage, QPixmap, QPalette, QColor
-from PySide2.QtCore import Qt, QFile, QThread, Signal
-from PySide2.QtUiTools import QUiLoader
-from PySide2.QtGui import QTextOption
+from PySide6.QtWidgets import QApplication, QMainWindow
+from PySide6.QtGui import QImage, QPixmap, QPalette, QColor
+from PySide6.QtCore import Qt, QFile, QThread, Signal
+from PySide6.QtUiTools import QUiLoader
+from PySide6.QtGui import QTextOption
 
 from PIL import ImageQt
 

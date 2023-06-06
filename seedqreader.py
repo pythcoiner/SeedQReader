@@ -37,6 +37,7 @@ from embit.psbt import PSBT
 
 MAX_LEN = 100
 QR_DELAY = 400
+FILL_COLOR = "#434343"
 
 def to_str(bin_):
     return bin_.decode('utf-8')
@@ -518,7 +519,7 @@ class MainWindow(QMainWindow):
         available_cameras = []
         while True:
             cap = cv2.VideoCapture(index)
-            if not cap.isOpened():
+            if not cap.isOpened() and available_cameras:
                 if (index - int(available_cameras[-1])) > 2:
                     break
                 else:
@@ -563,6 +564,10 @@ class MainWindow(QMainWindow):
             self.data_type = self.ui.combo_type.currentText()
 
     def on_qr_display(self, frame):
+        if frame is None:
+            frame = QPixmap(self.ui.video_in.size())
+            frame.fill(QColor(FILL_COLOR))
+        
         self.ui.video_out.setPixmap(frame)
 
     def on_qr_read(self):
@@ -578,6 +583,10 @@ class MainWindow(QMainWindow):
         self.ui.data_in.setPlainText(data)
 
     def upd_camera_stream(self, frame):
+        if frame is None:
+            frame = QPixmap(self.ui.video_in.size())
+            frame.fill(QColor(FILL_COLOR))
+        
         self.ui.video_in.setPixmap(frame)
 
     def on_slider_move(self):
@@ -710,5 +719,5 @@ if __name__ == '__main__':
     app.setPalette(palette)
 
     main_win = MainWindow()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 

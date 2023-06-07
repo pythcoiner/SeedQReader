@@ -520,16 +520,18 @@ class MainWindow(QMainWindow):
         available_cameras = []
         while True:
             cap = cv2.VideoCapture(index)
-            if not cap.isOpened() and available_cameras:
-                if (index - int(available_cameras[-1])) > 2:
+            if cap.isOpened():
+                available_cameras.append(str(index))
+                cap.release()
+                index += 1
+            else:
+                if index > 20 and not available_cameras:
+                    break
+                elif available_cameras and (index - int(available_cameras[-1])) > 2:
                     break
                 else:
                     index += 1
                     continue
-
-            available_cameras.append(str(index))
-            cap.release()
-            index += 1
 
         return available_cameras
 

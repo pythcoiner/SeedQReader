@@ -313,7 +313,7 @@ class ReadQR(QThread):
         #  Multipart QR Code case
 
         # specter format
-        if re.match(r'^p\d+of\d+\s', data):
+        if re.match(r'^p\d+of\d+\s', data, re.IGNORECASE):
 
             if not self.qr_data:
                 self.qr_data = MultiQRCode()
@@ -332,7 +332,7 @@ class ReadQR(QThread):
             self.parent.ui.read_progress.setFormat(f"{self.qr_data.sequences_count}/{self.qr_data.total_sequences}")
             self.parent.ui.read_progress.setVisible(True)
 
-        elif re.match(r'^UR:', data):
+        elif re.match(r'^UR:', data, re.IGNORECASE):
 
             if not self.qr_data:
                 self.qr_data = MultiQRCode()

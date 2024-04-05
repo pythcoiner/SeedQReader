@@ -422,11 +422,10 @@ class DisplayQR(QThread):
 class MainWindow(QMainWindow):
     stop_display = Signal()
 
-    def __init__(self):
+    def __init__(self, loader):
         super().__init__()
 
         # Set up the main window
-        loader = QUiLoader()
         path = os.fspath(Path(__file__).resolve().parent / "form.ui")
         ui_file = QFile(path)
         ui_file.open(QFile.ReadOnly)
@@ -700,6 +699,8 @@ class MainWindow(QMainWindow):
 
 
 if __name__ == '__main__':
+    # the QUiLoader object needs to be initialized BEFORE the QApplication - https://stackoverflow.com/a/78041695
+    loader = QUiLoader()
     app = QApplication(sys.argv)
 
     app.setStyle("Fusion")
@@ -721,7 +722,7 @@ if __name__ == '__main__':
     palette.setColor(QPalette.HighlightedText, Qt.black)
     app.setPalette(palette)
 
-    main_win = MainWindow()
+    main_win = MainWindow(loader)
     main_win.show()
     app.exec()
 

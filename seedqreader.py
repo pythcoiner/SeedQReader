@@ -36,8 +36,12 @@ from urtypes.bytes import Bytes
 from embit.psbt import PSBT
 
 MAX_LEN = 100
-QR_DELAY = 400
 FILL_COLOR = "#434343"
+
+STOP_QR_TXT = 'Remove QR'
+STOP_READ_TXT = 'Stop read'
+GENERATE_TXT = 'Generate QR'
+
 
 def to_str(bin_):
     return bin_.decode('utf-8')
@@ -267,7 +271,7 @@ class ReadQR(QThread):
             return
         self.capture = cv2.VideoCapture(camera_id)
 
-        self.parent.ui.btn_start_read.setText('Stop')
+        self.parent.ui.btn_start_read.setText(STOP_READ_TXT)
         while not self.end:
             self.msleep(30)
 
@@ -341,7 +345,10 @@ class ReadQR(QThread):
             self.qr_data.append(data)
 
             progress = self.qr_data.decoder.estimated_percent_complete() * 100
-            self.qr_data.total_sequences = self.qr_data.decoder.expected_part_count()
+            try:
+                self.qr_data.total_sequences = self.qr_data.decoder.expected_part_count()
+            except:
+                self.qr_data.total_sequences = 0
             self.qr_data.sequences_count = self.qr_data.decoder.processed_parts_count()
             self.parent.ui.read_progress.setValue(progress)
             self.parent.ui.read_progress.setFormat(f"{self.qr_data.sequences_count}/{self.qr_data.total_sequences}")
@@ -367,11 +374,15 @@ class DisplayQR(QThread):
 
     video_stream = Signal(object)
 
-    def __init__(self, parent):
+    def __init__(self, parent, delay):
         QThread.__init__(self)
         self.parent = parent
+        self.set_delay(delay)
         self.qr_data: QRCode | MultiQRCode = None
         self.stop = False
+
+    def set_delay(self, delay):
+        self.delay = delay
 
     def run(self):
         self.stop = False
@@ -384,11 +395,11 @@ class DisplayQR(QThread):
                 if self.qr_data.total_sequences == 1:
                     break
                 if not self.stop:
-                    self.msleep(QR_DELAY)
+                    self.msleep(self.delay)
 
             if self.qr_data.total_sequences == 1:
                 while not self.stop:
-                    self.msleep(QR_DELAY)
+                    self.msleep(self.delay)
 
             self.parent.ui.steps.setText('')
 
@@ -396,7 +407,7 @@ class DisplayQR(QThread):
             data = self.qr_data.data
             self.display_qr(data)
             while not self.stop:
-                self.msleep(QR_DELAY)
+                self.msleep(self.delay)
 
     def display_qr(self, data):
 
@@ -442,6 +453,7 @@ class MainWindow(QMainWindow):
         self.ui.btn_generate.clicked.connect(self.on_btn_generate)
         self.ui.btn_clear.clicked.connect(self.on_btn_clear)
         self.ui.send_slider.valueChanged.connect(self.on_slider_move)
+        self.ui.delay_slider.valueChanged.connect(self.on_delay_slider_move)
 
         self.ui.data_out.setWordWrapMode(QTextOption.WrapAnywhere)
 
@@ -481,6 +493,7 @@ class MainWindow(QMainWindow):
         self.ui.btn_camera_update.clicked.connect(self.on_camera_update)
 
         self.on_slider_move()
+        self.on_delay_slider_move()
         self.on_camera_update()
 
         self.init_qr()
@@ -491,7 +504,7 @@ class MainWindow(QMainWindow):
         self.read_qr.video_stream.connect(self.upd_camera_stream)
         self.read_qr.data.connect(self.on_qr_data_read)
 
-        self.display_qr = DisplayQR(self)
+        self.display_qr = DisplayQR(self,self.ui.delay_slider.value())
         self.display_qr.video_stream.connect(self.on_qr_display)
         self.stop_display.connect(self.display_qr.on_stop)
 
@@ -592,7 +605,14 @@ class MainWindow(QMainWindow):
         self.ui.video_in.setPixmap(frame)
 
     def on_slider_move(self):
-        self.ui.split_size.setText(f"Split size: {self.ui.send_slider.value()}")
+        self.ui.split_size.setText(f"QR split size: {self.ui.send_slider.value()}")
+
+    def on_delay_slider_move(self):
+        self.ui.delay_size.setText(f"QR delay: {self.ui.delay_slider.value()}")
+        try:
+            self.display_qr.set_delay(self.ui.delay_slider.value())
+        except:
+            pass
 
     def on_btn_generate(self):
         data: str = self.ui.data_out.toPlainText()
@@ -612,11 +632,11 @@ class MainWindow(QMainWindow):
             self.display_qr.qr_data = qr
             self.display_qr.start()
 
-            self.ui.btn_generate.setText('Stop')
+            self.ui.btn_generate.setText(STOP_QR_TXT)
 
         else:
             self.stop_display.emit()
-            self.ui.btn_generate.setText('Generate')
+            self.ui.btn_generate.setText(GENERATE_TXT)
 
     def on_btn_clear(self):
         self.ui.data_out.setPlainText('')
@@ -714,6 +734,7 @@ if __name__ == '__main__':
     palette.setColor(QPalette.ToolTipBase, Qt.black)
     palette.setColor(QPalette.ToolTipText, Qt.white)
     palette.setColor(QPalette.Text, Qt.white)
+    palette.setColor(QPalette.PlaceholderText, Qt.gray)
     palette.setColor(QPalette.Button, QColor(53, 53, 53))
     palette.setColor(QPalette.ButtonText, Qt.white)
     palette.setColor(QPalette.BrightText, Qt.red)

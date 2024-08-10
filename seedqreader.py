@@ -606,10 +606,9 @@ class MainWindow(QMainWindow):
 
     def on_delay_slider_move(self):
         self.ui.delay_size.setText(f"QR delay: {self.ui.delay_slider.value()}")
-        try:
-            self.display_qr.set_delay(self.ui.delay_slider.value())
-        except:
-            pass
+
+        if self.display_qr:
+            self.display_qr.delay = (self.ui.delay_slider.value())
 
     def on_btn_generate(self):
         data: str = self.ui.data_out.toPlainText()

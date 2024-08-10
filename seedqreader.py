@@ -377,9 +377,12 @@ class DisplayQR(QThread):
     def __init__(self, parent, delay):
         QThread.__init__(self)
         self.parent = parent
-        self.delay=delay
+        self.set_delay(delay)
         self.qr_data: QRCode | MultiQRCode = None
         self.stop = False
+
+    def set_delay(self, delay):
+        self.delay = delay
 
     def run(self):
         self.stop = False

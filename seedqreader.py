@@ -10,7 +10,7 @@ from yaml import load, dump
 from yaml.loader import SafeLoader as Loader
 
 from PySide6.QtWidgets import QApplication, QMainWindow
-from PySide6.QtGui import QImage, QPixmap, QPalette, QColor
+from PySide6.QtGui import QImage, QPixmap, QPalette, QColor, QColorConstants
 from PySide6.QtCore import Qt, QFile, QThread, Signal
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtGui import QTextOption
@@ -174,7 +174,6 @@ class MultiQRCode(QRCode):
 
     @staticmethod
     def from_string(data, max=MAX_LEN, type=None, format=None):
-
         if (max and len(data) > max) or format == 'UR':
             out = MultiQRCode()
             out.data = data
@@ -218,7 +217,6 @@ class MultiQRCode(QRCode):
                 ur = UR(out.data_type, _UR(data).to_cbor())
                 out.encoder = UREncoder(ur, max)
                 out.total_sequences = out.encoder.fountain_encoder.seq_len()
-
         else:
             out = QRCode()
             out.data = data
@@ -250,7 +248,6 @@ class MultiQRCode(QRCode):
 
 
 class ReadQR(QThread):
-
     data = Signal(object)
     video_stream = Signal(object)
 
@@ -313,8 +310,7 @@ class ReadQR(QThread):
         return
 
     def decode(self, data):
-
-        #  Multipart QR Code case
+        '''Multipart QR Code case'''
 
         # specter format
         if re.match(r'^p\d+of\d+\s', data, re.IGNORECASE):
@@ -335,7 +331,8 @@ class ReadQR(QThread):
             self.parent.ui.read_progress.setValue(progress)
             self.parent.ui.read_progress.setFormat(f"{self.qr_data.sequences_count}/{self.qr_data.total_sequences}")
             self.parent.ui.read_progress.setVisible(True)
-
+        
+        # UR format
         elif re.match(r'^UR:', data, re.IGNORECASE):
 
             if not self.qr_data:
@@ -354,12 +351,10 @@ class ReadQR(QThread):
             self.parent.ui.read_progress.setFormat(f"{self.qr_data.sequences_count}/{self.qr_data.total_sequences}")
             self.parent.ui.read_progress.setVisible(True)
 
-
+        # Other format
         else:
             self.qr_data = QRCode()
             self.qr_data.append(data)
-
-
 
     def on_finnish(self):
         if self.capture:
@@ -371,7 +366,6 @@ class ReadQR(QThread):
 
 
 class DisplayQR(QThread):
-
     video_stream = Signal(object)
 
     def __init__(self, parent, delay):
@@ -379,7 +373,7 @@ class DisplayQR(QThread):
         self.parent = parent
         self.set_delay(delay)
         self.qr_data: QRCode | MultiQRCode = None
-        self.stop = False
+        self.stop = True
 
     def set_delay(self, delay):
         self.delay = delay
@@ -387,30 +381,23 @@ class DisplayQR(QThread):
     def run(self):
         self.stop = False
         if self.qr_data.total_sequences > 1 or self.qr_data.qr_type == qr_type.UR:
+            remove_qr = True
             while not self.stop:
                 data = self.qr_data.next()
-
                 self.display_qr(data)
                 self.parent.ui.steps.setText(self.qr_data.step())
                 if self.qr_data.total_sequences == 1:
+                    remove_qr = False
                     break
-                if not self.stop:
-                    self.msleep(self.delay)
-
-            if self.qr_data.total_sequences == 1:
-                while not self.stop:
-                    self.msleep(self.delay)
-
-            self.parent.ui.steps.setText('')
-
+                self.msleep(self.delay)
+            if remove_qr:
+                self.video_stream.emit(None)
         elif self.qr_data.total_sequences == 1:
             data = self.qr_data.data
             self.display_qr(data)
-            while not self.stop:
-                self.msleep(self.delay)
+            self.parent.ui.steps.setText('')
 
     def display_qr(self, data):
-
         qr = qrcode.QRCode()
         qr.add_data(data)
         qr.make(fit=False)
@@ -425,14 +412,8 @@ class DisplayQR(QThread):
         scaled_pixmap = pixmap.scaled(self.parent.ui.video_out.size(), Qt.KeepAspectRatio)
         self.video_stream.emit(scaled_pixmap)
 
-    def on_stop(self):
-        self.video_stream.emit(None)
-        self.stop = True
-
 
 class MainWindow(QMainWindow):
-    stop_display = Signal()
-
     def __init__(self, loader):
         super().__init__()
 
@@ -499,17 +480,14 @@ class MainWindow(QMainWindow):
         self.init_qr()
 
     def init_qr(self):
-
         self.read_qr = ReadQR(self)
         self.read_qr.video_stream.connect(self.upd_camera_stream)
         self.read_qr.data.connect(self.on_qr_data_read)
 
-        self.display_qr = DisplayQR(self,self.ui.delay_slider.value())
+        self.display_qr = DisplayQR(self, self.ui.delay_slider.value())
         self.display_qr.video_stream.connect(self.on_qr_display)
-        self.stop_display.connect(self.display_qr.on_stop)
 
     def load_config(self):
-
         if not os.path.exists('config'):
             f = open('config', 'w')
             f.close()
@@ -617,25 +595,29 @@ class MainWindow(QMainWindow):
     def on_btn_generate(self):
         data: str = self.ui.data_out.toPlainText()
         data.replace(' ', '').replace('\n', '')
-        if not self.display_qr.isRunning() and data != '':
 
-            if self.ui.no_split.isChecked():
-                _max = None
-            else:
-                _max = self.ui.send_slider.value()
+        if not self.display_qr.isRunning() and self.display_qr.stop and data != '':
+            _max = None if self.ui.no_split.isChecked() else self.ui.send_slider.value()
 
-            # print(f"max={_max}")
-            qr = MultiQRCode.from_string(data, max=_max, type=self.data_type, format=self.format)
+            try:
+                qr = MultiQRCode.from_string(data, max=_max, type=self.data_type, format=self.format)
+            except:
+                print("error creating MultiQRCode", self.format)
+                return
+            
             if not qr:
                 print("error creating MultiQRCode")
                 return
+            
             self.display_qr.qr_data = qr
             self.display_qr.start()
 
             self.ui.btn_generate.setText(STOP_QR_TXT)
-
         else:
-            self.stop_display.emit()
+            self.display_qr.stop = True
+            self.ui.steps.setText('')
+            self.display_qr.video_stream.emit(None)
+
             self.ui.btn_generate.setText(GENERATE_TXT)
 
     def on_btn_clear(self):
@@ -702,7 +684,6 @@ class MainWindow(QMainWindow):
             return
 
     def on_radio_toggled(self):
-
         self.radio_select()
         self.load_config()
 
@@ -712,7 +693,6 @@ class MainWindow(QMainWindow):
             self.ui.data_out.setPlainText('')
 
     def on_btn_save(self):
-
         self.load_config()
         self.config[self.radio_selected] = self.ui.data_out.toPlainText()
         self.dump_config()
@@ -741,6 +721,8 @@ if __name__ == '__main__':
     palette.setColor(QPalette.Link, QColor(42, 130, 218))
     palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
     palette.setColor(QPalette.HighlightedText, Qt.black)
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.Button, QColorConstants.DarkGray)
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ButtonText, QColorConstants.Black)
     app.setPalette(palette)
 
     main_win = MainWindow(loader)

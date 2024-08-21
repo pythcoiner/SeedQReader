@@ -1,7 +1,6 @@
 import sys
 import os
 import re
-import traceback
 
 from dataclasses import dataclass, field
 
@@ -414,7 +413,7 @@ class DisplayQR(QThread):
             scaled_pixmap = pixmap.scaled(self.parent.ui.video_out.size(), Qt.KeepAspectRatio)
             self.video_stream.emit(scaled_pixmap)
         except Exception as e:
-            print(e)
+            print("error making QR", e)
 
 
 class MainWindow(QMainWindow):

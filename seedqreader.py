@@ -225,26 +225,24 @@ class MultiQRCode(QRCode):
         return out
 
     def next(self) -> str:
+        data = None
         if self.qr_type == qr_type.SPECTER:
-            self.current += 1
-            if self.current >= self.total_sequences:
-                self.current = 0
-
             data = self.data_stack[self.current]
 
             digit_a = self.current + 1
             digit_b = self.total_sequences
 
+            self.current += 1
+            if self.current >= self.total_sequences:
+                self.current = 0
+
             data = f"p{digit_a}of{digit_b} {data}"
-            print(data)
-
-            return data
-
         elif self.qr_type == qr_type.UR:
             self.current = self.encoder.fountain_encoder.seq_num
             data = self.encoder.next_part().upper()
-            print(data)
-            return data
+        
+        print(data)
+        return data
 
 
 class ReadQR(QThread):
@@ -383,19 +381,21 @@ class DisplayQR(QThread):
         if self.qr_data.total_sequences > 1 or self.qr_data.qr_type == qr_type.UR:
             remove_qr = True
             while not self.stop:
-                data = self.qr_data.next()
-                self.display_qr(data)
                 self.parent.ui.steps.setText(self.qr_data.step())
+                data = self.qr_data.next()
+                if self.qr_data.qr_type == qr_type.UR:
+                    self.parent.ui.steps.setText(self.qr_data.step())
+                self.display_qr(data)
+                self.msleep(self.delay)
                 if self.qr_data.total_sequences == 1:
                     remove_qr = False
                     break
-                self.msleep(self.delay)
             if remove_qr:
                 self.video_stream.emit(None)
         elif self.qr_data.total_sequences == 1:
             data = self.qr_data.data
             self.display_qr(data)
-            self.parent.ui.steps.setText('')
+        self.parent.ui.steps.setText('')
 
     def display_qr(self, data):
         try:
@@ -631,11 +631,10 @@ class MainWindow(QMainWindow):
 
             self.ui.btn_generate.setText(STOP_QR_TXT)
         else:
-            self.ui.split_group.setDisabled(False)
             self.display_qr.stop = True
-            self.ui.steps.setText('')
             self.display_qr.video_stream.emit(None)
 
+            self.ui.split_group.setDisabled(False)
             self.ui.btn_generate.setText(GENERATE_TXT)
 
     def on_btn_clear(self):

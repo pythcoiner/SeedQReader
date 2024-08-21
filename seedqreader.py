@@ -1,6 +1,7 @@
 import sys
 import os
 import re
+import traceback
 
 from dataclasses import dataclass, field
 
@@ -398,19 +399,22 @@ class DisplayQR(QThread):
             self.parent.ui.steps.setText('')
 
     def display_qr(self, data):
-        qr = qrcode.QRCode()
-        qr.add_data(data)
-        qr.make(fit=False)
-        img = qr.make_image()
-        pil_image = img.convert("RGB")
-        qimage = ImageQt.ImageQt(pil_image)
-        qimage = qimage.convertToFormat(QImage.Format_RGB888)
+        try:
+            qr = qrcode.QRCode()
+            qr.add_data(data)
+            qr.make(fit=False)
+            img = qr.make_image()
+            pil_image = img.convert("RGB")
+            qimage = ImageQt.ImageQt(pil_image)
+            qimage = qimage.convertToFormat(QImage.Format_RGB888)
 
-        # Create a QPixmap from the QImage
-        pixmap = QPixmap.fromImage(qimage)
+            # Create a QPixmap from the QImage
+            pixmap = QPixmap.fromImage(qimage)
 
-        scaled_pixmap = pixmap.scaled(self.parent.ui.video_out.size(), Qt.KeepAspectRatio)
-        self.video_stream.emit(scaled_pixmap)
+            scaled_pixmap = pixmap.scaled(self.parent.ui.video_out.size(), Qt.KeepAspectRatio)
+            self.video_stream.emit(scaled_pixmap)
+        except Exception as e:
+            print(e)
 
 
 class MainWindow(QMainWindow):
@@ -435,6 +439,7 @@ class MainWindow(QMainWindow):
         self.ui.btn_clear.clicked.connect(self.on_btn_clear)
         self.ui.send_slider.valueChanged.connect(self.on_slider_move)
         self.ui.delay_slider.valueChanged.connect(self.on_delay_slider_move)
+        self.ui.no_split.stateChanged.connect(self.on_no_split_change)
 
         self.ui.data_out.setWordWrapMode(QTextOption.WrapAnywhere)
 
@@ -583,7 +588,19 @@ class MainWindow(QMainWindow):
         self.ui.video_in.setPixmap(frame)
 
     def on_slider_move(self):
-        self.ui.split_size.setText(f"QR split size: {self.ui.send_slider.value()}")
+        self.set_split_slider(self.ui.send_slider.value())
+
+    def on_no_split_change(self):
+        self.ui.send_slider.setDisabled(self.ui.no_split.isChecked())
+        self.ui.split_size.setDisabled(self.ui.no_split.isChecked())
+
+        if self.ui.no_split.isChecked():
+            self.set_split_slider('-')
+        else:
+            self.set_split_slider(self.ui.send_slider.value()) 
+
+    def set_split_slider(self, val):
+        self.ui.split_size.setText(f"QR split size: {val}")
 
     def on_delay_slider_move(self):
         self.ui.delay_size.setText(f"QR delay: {self.ui.delay_slider.value()}")
@@ -609,11 +626,13 @@ class MainWindow(QMainWindow):
                 print("error creating MultiQRCode")
                 return
             
+            self.ui.split_group.setDisabled(True)
             self.display_qr.qr_data = qr
             self.display_qr.start()
 
             self.ui.btn_generate.setText(STOP_QR_TXT)
         else:
+            self.ui.split_group.setDisabled(False)
             self.display_qr.stop = True
             self.ui.steps.setText('')
             self.display_qr.video_stream.emit(None)
@@ -723,6 +742,8 @@ if __name__ == '__main__':
     palette.setColor(QPalette.HighlightedText, Qt.black)
     palette.setColor(QPalette.ColorGroup.Disabled, QPalette.Button, QColorConstants.DarkGray)
     palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ButtonText, QColorConstants.Black)
+    palette.setColor(QPalette.ColorGroup.Disabled, QPalette.WindowText, QColorConstants.DarkGray)
+    
     app.setPalette(palette)
 
     main_win = MainWindow(loader)

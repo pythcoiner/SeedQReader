@@ -42,6 +42,7 @@ STOP_QR_TXT = 'Remove QR'
 STOP_READ_TXT = 'Stop read'
 GENERATE_TXT = 'Generate QR'
 
+ANIMATED_QR_FIRST_FRAME_DELAY = 900 #ms
 
 def to_str(bin_):
     return bin_.decode('utf-8')
@@ -241,7 +242,7 @@ class MultiQRCode(QRCode):
             self.current = self.encoder.fountain_encoder.seq_num
             data = self.encoder.next_part().upper()
         
-        print(data)
+        # print(data)
         return data
 
 
@@ -380,6 +381,7 @@ class DisplayQR(QThread):
         self.stop = False
         if self.qr_data.total_sequences > 1 or self.qr_data.qr_type == qr_type.UR:
             remove_qr = True
+            firstFrame = True
             while not self.stop:
                 self.parent.ui.steps.setText(self.qr_data.step())
                 data = self.qr_data.next()
@@ -390,6 +392,9 @@ class DisplayQR(QThread):
                 if self.qr_data.total_sequences == 1:
                     remove_qr = False
                     break
+                if firstFrame:
+                    firstFrame = False
+                    self.msleep(ANIMATED_QR_FIRST_FRAME_DELAY)
             if remove_qr:
                 self.video_stream.emit(None)
         elif self.qr_data.total_sequences == 1:

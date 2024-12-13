@@ -1,7 +1,7 @@
 embit==0.7.0
 numpy==1.26.4
 opencv-python==4.7.0.72
-Pillow==9.5.0
+Pillow==11.0.0
 pypng==0.20220715.0
 PyYAML==6.0.1
 pyzbar==0.1.9

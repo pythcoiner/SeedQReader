@@ -19,6 +19,13 @@ Go into this repo and run:
 pip install -r requirements.txt 
 ```
 
+Linux:
+```
+# For error:
+# qt.qpa.plugin: From 6.5.0, xcb-cursor0 or libxcb-cursor0 is needed to load the Qt xcb platform plugin.
+sudo apt install libxcb-cursor-dev
+```
+
 Run under Linux/MacOS:
 ```
 python3 seedqreader.py

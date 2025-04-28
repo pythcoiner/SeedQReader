@@ -719,23 +719,6 @@ class MainWindow(QMainWindow):
         self.config[self.radio_selected] = self.ui.data_out.toPlainText()
         self.dump_config()
 
-    def wheelEvent(self, event):
-
-        # If on Send / display QR tab
-        if self.ui.tabWidget.currentIndex() == 1:
-            numPixels = event.pixelDelta()
-            numDegrees = event.angleDelta() / 8
-            step = 0
-            if not numPixels.isNull():
-                step = numPixels.y()
-            elif not numDegrees.isNull():
-                numSteps = numDegrees / 15
-                step = numSteps.y()
-
-            self.ui.delay_slider.setValue(self.ui.delay_slider.value() + self.ui.delay_slider.singleStep() * step)
-
-        event.accept()
-
 
 if __name__ == '__main__':
     # the QUiLoader object needs to be initialized BEFORE the QApplication - https://stackoverflow.com/a/78041695

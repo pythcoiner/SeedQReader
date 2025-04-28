@@ -10,32 +10,34 @@ It actually can send/receive:
 - Multiframes QRCodes using the `Specter` format (_of_)
 - Multiframes QRCodes using the `UR` format are partially supported (PSBT and Bytes)
 
-Dependencies:
-opencv might be installed
-
-Install:
-Go into this repo and run:
+To install, enter the repo folder and run:
 ```
+# create environment to install dependencies
+python3 -m venv .seedqrenv
+
+# activate the environment on the current terminal
+source .seedqrenv/bin/activate
+
+# install python dependencies on this environment
 pip install -r requirements.txt 
 ```
 
-Linux:
+If you get this error, please install libxcb-cursor:
 ```
-# For error:
 # qt.qpa.plugin: From 6.5.0, xcb-cursor0 or libxcb-cursor0 is needed to load the Qt xcb platform plugin.
-sudo apt install libxcb-cursor-dev
+sudo apt install libxcb-cursor0
 ```
 
-Run under Linux/MacOS:
+Run:
 ```
+# Linux/MacOS
 python3 seedqreader.py
 ```
 
-Run under Windows:
+Run:
 ```
+# Windows
 python seedqreader.py
 ```
 
-If you want i build more cool tools you can support me with bitcoin:
-`bc1q5pgfrt09f4vuxyryg95erge38nw94usvpe5gg0`
-
+Project originally created by https://github.com/pythcoiner

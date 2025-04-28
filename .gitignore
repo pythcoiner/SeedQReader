@@ -5,3 +5,6 @@ config
 .seedqrenv/
 .venv/
 .env/
+build/
+*.spec
+dist/

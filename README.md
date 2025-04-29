@@ -40,4 +40,10 @@ Run:
 python seedqreader.py
 ```
 
+To build binaries:
+```
+python3 .ci/create-spec.py
+python3 -m PyInstaller seedqreader.spec
+```
+
 Project originally created by https://github.com/pythcoiner

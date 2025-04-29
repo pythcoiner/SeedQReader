@@ -75,6 +75,8 @@ if __name__ == "__main__":
         BUILDER_ARGS.append("--console")
         BUILDER_ARGS.append("--hidden-import=win32timezone")
         BUILDER_ARGS.append("--hide-console=minimize-early")
+        BUILDER_ARGS.append("--add-binary=assets/libiconv.dll:.")
+        BUILDER_ARGS.append("--add-binary=assets/libzbar-64.dll:.")
         
     elif SYSTEM == "Darwin":
         # Tha application is a GUI in a bundled .app

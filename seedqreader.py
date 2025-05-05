@@ -44,6 +44,14 @@ GENERATE_TXT = 'Generate QR'
 
 ANIMATED_QR_FIRST_FRAME_DELAY = 900 #ms
 
+FORMAT_UR = 'UR'
+FORMAT_SPECTER = 'Specter'
+FORMAT_BBQR = 'BBQR'
+
+# helper obj to handle bbqr encoding and file_type
+bbqr_obj = None
+
+
 def to_str(bin_):
     return bin_.decode('utf-8')
 
@@ -79,7 +87,7 @@ class MultiQRCode(QRCode):
     encoder = None
 
     def step(self):
-        if self.qr_type == qr_type.SPECTER:
+        if self.qr_type in (qr_type.SPECTER, qr_type.BBQR):
             self.total_sequences = len(self.data_stack)
 
             return f"{self.current + 1}/{self.total_sequences}"
@@ -93,6 +101,42 @@ class MultiQRCode(QRCode):
 
         elif self.qr_type == qr_type.UR:
             self.append_ur(data)
+
+        elif self.qr_type == qr_type.BBQR:
+            self.append_bbqr(data)
+
+    def append_bbqr(self, data: tuple):
+        data, sequence, total_sequences = data
+
+        if not self.is_init:
+            self.data_init(total_sequences)
+            self.is_init = True
+
+        if not self.data_stack[sequence]:
+            self.data_stack[sequence] = data
+        else:
+            if data != self.data_stack[sequence]:
+                raise ValueError('Same sequences have different data!')
+        self.check_complete_bbrq()
+            
+    def check_complete_bbrq(self):
+        global bbqr_obj
+
+        fill_sequences = 0
+        for i in self.data_stack:
+            if i:
+                fill_sequences += 1
+
+        self.sequences_count = fill_sequences
+
+        if fill_sequences == self.total_sequences:
+            from bbqr import decode_bbqr
+            my_dict = {}
+            for i, val in enumerate(self.data_stack):
+                my_dict[i] = val
+            self.data = decode_bbqr(my_dict, bbqr_obj.encoding, bbqr_obj.file_type)
+            self.is_completed = True
+
 
     def append_specter(self, data: tuple):
         # print(f'MultiQRCode.append({data})')
@@ -174,19 +218,22 @@ class MultiQRCode(QRCode):
                 print(self.decoder.result_error())
 
     @staticmethod
-    def from_string(data, max=MAX_LEN, type=None, format=None):
-        if (max and len(data) > max) or format == 'UR':
+    def from_string(data, _max=MAX_LEN, type=None, format=None):
+        if (_max and len(data) > _max) or format == FORMAT_UR:
             out = MultiQRCode()
             out.data = data
-            if format == 'UR':
-                out.qr_type = qr_type.UR
-            elif format == 'Specter':
-                out.qr_type = qr_type.SPECTER
 
-            if format == 'Specter':
-                while len(data) > max:
-                    sequence = data[:max]
-                    data = data[max:]
+            if format == FORMAT_UR:
+                out.qr_type = qr_type.UR
+            elif format == FORMAT_SPECTER:
+                out.qr_type = qr_type.SPECTER
+            elif format == FORMAT_BBQR:
+                out.qr_type = qr_type.BBQR
+
+            if format == FORMAT_SPECTER:
+                while len(data) > _max:
+                    sequence = data[:_max]
+                    data = data[_max:]
                     out.data_stack.append(sequence)
                 if len(data):
                     out.data_stack.append(data)
@@ -195,7 +242,34 @@ class MultiQRCode(QRCode):
                 out.sequences_count = out.total_sequences
                 out.is_completed = True
 
-            elif format == 'UR':
+            elif format == FORMAT_BBQR:
+                from bbqr import encode_bbqr
+
+                data_bytes = bytes(data, "utf-8")
+
+                bb = encode_bbqr(data_bytes)
+
+                # adjust BBQR size from 10-500 to 23-200
+                old_min, old_max = 10, 500
+                new_min, new_max = 23, 100
+
+                scaled_value = new_min + ((_max - old_min) * (new_max - new_min)) / (old_max - old_min)
+                _max = int(round(scaled_value))
+
+                count = 1
+                for sequence, total in bb.to_qr_code(_max):
+                    out.data_stack.append(sequence)
+                    count += 1
+                    if count > total:
+                        break
+                out.total_sequences = total
+                out.sequences_count = out.total_sequences
+                out.is_completed = True
+
+                if total == 1:
+                    out.data = sequence
+
+            elif format == FORMAT_UR:
                 _UR = None
                 if type == 'PSBT':
                     out.data_type = 'crypto-psbt'
@@ -213,10 +287,10 @@ class MultiQRCode(QRCode):
                     _UR = Bytes
                 else:
                     return
-                if not max:
-                    max = 100000
+                if not _max:
+                    _max = 100000
                 ur = UR(out.data_type, _UR(data).to_cbor())
-                out.encoder = UREncoder(ur, max)
+                out.encoder = UREncoder(ur, _max)
                 out.total_sequences = out.encoder.fountain_encoder.seq_len()
         else:
             out = QRCode()
@@ -233,16 +307,20 @@ class MultiQRCode(QRCode):
             digit_a = self.current + 1
             digit_b = self.total_sequences
 
+            data = f"p{digit_a}of{digit_b} {data}"
+
             self.current += 1
             if self.current >= self.total_sequences:
                 self.current = 0
-
-            data = f"p{digit_a}of{digit_b} {data}"
         elif self.qr_type == qr_type.UR:
             self.current = self.encoder.fountain_encoder.seq_num
             data = self.encoder.next_part().upper()
+        elif self.qr_type == qr_type.BBQR:
+            data = self.data_stack[self.current]
+            self.current += 1
+            if self.current >= self.total_sequences:
+                self.current = 0
         
-        # print(data)
         return data
 
 
@@ -350,6 +428,32 @@ class ReadQR(QThread):
             self.parent.ui.read_progress.setFormat(f"{self.qr_data.sequences_count}/{self.qr_data.total_sequences}")
             self.parent.ui.read_progress.setVisible(True)
 
+        elif data.startswith("B$"):
+            global bbqr_obj
+            if bbqr_obj is None:
+                from bbqr import BBQrCode, KNOWN_ENCODINGS, KNOWN_FILETYPES
+
+                if data[3] in KNOWN_FILETYPES:
+                    bbqr_file_type = data[3]
+                    if data[2] in KNOWN_ENCODINGS:
+                        bbqr_encoding = data[2]
+                        bbqr_obj = BBQrCode(None, bbqr_encoding, bbqr_file_type)
+
+            from bbqr import parse_bbqr
+
+            parsed_data = parse_bbqr(data)
+
+            if not self.qr_data:
+                self.qr_data = MultiQRCode()
+                self.qr_data.qr_type = qr_type.BBQR
+
+            self.qr_data.append(parsed_data)
+
+            progress = round(self.qr_data.sequences_count / self.qr_data.total_sequences * 100)
+            self.parent.ui.read_progress.setValue(progress)
+            self.parent.ui.read_progress.setFormat(f"{self.qr_data.sequences_count}/{self.qr_data.total_sequences}")
+            self.parent.ui.read_progress.setVisible(True)
+                
         # Other format
         else:
             self.qr_data = QRCode()
@@ -471,7 +575,7 @@ class MainWindow(QMainWindow):
 
         self.ui.btn_save.clicked.connect(self.on_btn_save)
 
-        self.ui.combo_format.addItems(['Specter', 'UR'])
+        self.ui.combo_format.addItems([FORMAT_SPECTER, FORMAT_UR, FORMAT_BBQR])
         self.format = self.ui.combo_format.currentText()
         self.ui.combo_format.currentIndexChanged.connect(self.on_format_change)
         self.ui.combo_type.currentIndexChanged.connect(self.on_data_type_change)
@@ -553,16 +657,16 @@ class MainWindow(QMainWindow):
     def on_format_change(self):
         self.format = self.ui.combo_format.currentText()
 
-        if self.format != 'Specter':
+        if self.format == FORMAT_UR:
             self.ui.combo_type.show()
             self.on_data_type_change()
 
-        else:
+        elif self.format in (FORMAT_SPECTER, FORMAT_BBQR):
             self.ui.combo_type.hide()
             self.data_type = None
 
     def on_data_type_change(self):
-        if self.format == 'UR':
+        if self.format == FORMAT_UR:
             self.data_type = self.ui.combo_type.currentText()
 
     def on_qr_display(self, frame):
@@ -582,6 +686,16 @@ class MainWindow(QMainWindow):
 
     def on_qr_data_read(self, data):
         self.ui.data_in.setWordWrapMode(QTextOption.WrapAnywhere)
+        if isinstance(data, bytes):
+            try:
+                data = data.decode("utf-8")
+            except:
+                try:
+                    import base64
+                    data = base64.b64encode(data).decode("utf-8")
+                except Exception as e:
+                    print("Could not identify data", e)
+                
         self.ui.data_in.setPlainText(data)
 
     def upd_camera_stream(self, frame):
@@ -622,9 +736,9 @@ class MainWindow(QMainWindow):
             _max = None if self.ui.no_split.isChecked() else self.ui.send_slider.value()
 
             try:
-                qr = MultiQRCode.from_string(data, max=_max, type=self.data_type, format=self.format)
-            except:
-                print("error creating MultiQRCode", self.format)
+                qr = MultiQRCode.from_string(data, _max=_max, type=self.data_type, format=self.format)
+            except Exception as e:
+                print("error creating MultiQRCode", self.format, e)
                 return
             
             if not qr:

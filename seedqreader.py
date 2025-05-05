@@ -597,6 +597,7 @@ class MainWindow(QMainWindow):
     def on_no_split_change(self):
         self.ui.send_slider.setDisabled(self.ui.no_split.isChecked())
         self.ui.split_size.setDisabled(self.ui.no_split.isChecked())
+        self.disableQRCombo(self.ui.no_split.isChecked())
 
         if self.ui.no_split.isChecked():
             self.set_split_slider('-')
@@ -635,15 +636,21 @@ class MainWindow(QMainWindow):
             self.display_qr.start()
 
             self.ui.btn_generate.setText(STOP_QR_TXT)
+            self.disableQRCombo(True)
         else:
             self.display_qr.stop = True
             self.display_qr.video_stream.emit(None)
 
             self.ui.split_group.setDisabled(False)
             self.ui.btn_generate.setText(GENERATE_TXT)
+            self.disableQRCombo(False)
 
     def on_btn_clear(self):
         self.ui.data_out.setPlainText('')
+
+    def disableQRCombo(self, val):
+        self.ui.combo_type.setDisabled(val)
+        self.ui.combo_format.setDisabled(val)
 
     def select_data_type(self, data_type):
         self.data_type = data_type

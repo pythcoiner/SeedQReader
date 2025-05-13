@@ -75,5 +75,8 @@ python3 .ci/create-spec.py
 python3 -m PyInstaller seedqreader.spec
 ```
 
+## Acknowledgements & Alternatives
 
-Project originally created by https://github.com/pythcoiner
+Big thanks to [pythcoiner](https://github.com/pythcoiner) for originally creating SeedQReader! 🙌
+
+If SeedQReader isn’t your vibe, check out [bitcoin-qr-tools](https://github.com/andreasgriffin/bitcoin-qr-tools) for another awesome QR code tool for BTC stuff. 😄

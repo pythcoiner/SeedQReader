@@ -4,5 +4,5 @@ Pillow==11.2.1
 pyzbar==0.1.9
 qrcode==8.1
 opencv-python==4.11.0.86
-urtypes @ git+https://github.com/selfcustody/urtypes.git
+urtypes==1.0.0
 embit==0.8.0

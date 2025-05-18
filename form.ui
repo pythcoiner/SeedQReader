@@ -2,21 +2,13 @@
 <ui version="4.0">
  <class>centralwidget</class>
  <widget class="QWidget" name="centralwidget">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>811</width>
-    <height>650</height>
-   </rect>
-  </property>
   <widget class="QTabWidget" name="tabWidget">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>811</width>
-     <height>650</height>
+     <width>812</width>
+     <height>660</height>
     </rect>
    </property>
    <property name="accessibleName">
@@ -74,7 +66,7 @@
       <string/>
      </property>
     </widget>
-    <widget class="QWidget" name="verticalLayoutWidget_2">
+    <widget class="QWidget" name="camera_group">
      <property name="geometry">
       <rect>
        <x>10</x>
@@ -143,7 +135,82 @@
       <item>
        <widget class="QPushButton" name="btn_start_read">
         <property name="text">
-         <string>Start Read</string>
+         <string>📷 Camera Scan</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+    <widget class="QWidget" name="monitor_group">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>150</y>
+       <width>154</width>
+       <height>94</height>
+      </rect>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_44">
+      <item>
+       <widget class="QLabel" name="monitor_label">
+        <property name="font">
+         <font>
+          <pointsize>11</pointsize>
+          <bold>true</bold>
+         </font>
+        </property>
+        <property name="text">
+         <string>Monitor:</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="Line" name="line_77">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_44">
+        <item>
+         <widget class="QComboBox" name="combo_monitor">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btn_monitor_update">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>🔍</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btn_start_read_monitor">
+        <property name="text">
+         <string>🖥️ Screen Scan</string>
         </property>
        </widget>
       </item>
@@ -626,16 +693,6 @@
      </widget>
     </widget>
    </widget>
-  </widget>
-  <widget class="QStatusBar" name="statusbar">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>3</width>
-     <height>21</height>
-    </rect>
-   </property>
   </widget>
  </widget>
  <resources/>

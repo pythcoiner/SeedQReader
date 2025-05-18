@@ -10,7 +10,7 @@ from yaml import load, dump
 from yaml.loader import SafeLoader as Loader
 
 from PySide6.QtWidgets import QApplication, QMainWindow
-from PySide6.QtGui import QImage, QPixmap, QPalette, QColor, QColorConstants
+from PySide6.QtGui import QImage, QPixmap, QPalette, QColor, QColorConstants, QIcon
 from PySide6.QtCore import Qt, QFile, QThread, Signal
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtGui import QTextOption
@@ -35,11 +35,17 @@ from urtypes.bytes import Bytes
 
 from embit.psbt import PSBT
 
+from mss import mss
+import numpy as np
+
+VERSION="1.1.0"
+
 MAX_LEN = 100
 FILL_COLOR = "#434343"
 
 STOP_QR_TXT = 'Remove QR'
-STOP_READ_TXT = 'Stop read'
+STOP_READ_TXT = ' Stop'
+START_READ_TXT = ' Scan'
 GENERATE_TXT = 'Generate QR'
 
 ANIMATED_QR_FIRST_FRAME_DELAY = 900 #ms
@@ -335,29 +341,83 @@ class ReadQR(QThread):
         self.qr_data: QRCode | MultiQRCode = None
         self.capture = None
         self.end = False
+        self.viaCamera = True
 
     def run(self):
+        from PIL import Image
         self.qr_data: QRCode | MultiQRCode = None
-        # Initialize the camera
-        camera_id = self.parent.get_camera_id()
 
-        if camera_id is None:
-            return
-        self.capture = cv2.VideoCapture(camera_id)
+        if self.viaCamera:
+            # Initialize the camera
+            camera_id = self.parent.get_camera_id()
 
-        self.parent.ui.btn_start_read.setText(STOP_READ_TXT)
+            if camera_id is None:
+                return
+            
+            self.capture = cv2.VideoCapture(camera_id)
+            
+            self.parent.ui.btn_start_read.setText(' '.join(self.parent.ui.btn_start_read.text().split(' ')[:-1]) + STOP_READ_TXT)
+            self.parent.ui.monitor_group.setDisabled(True)
+        else:
+            # Initialize the monitor
+            monitor_id = self.parent.get_monitor_id()
+
+            if monitor_id is None:
+                return
+            else:
+                monitor_id += 1
+
+            self.parent.ui.btn_start_read_monitor.setText(' '.join(self.parent.ui.btn_start_read_monitor.text().split(' ')[:-1]) + STOP_READ_TXT)
+            self.parent.ui.camera_group.setDisabled(True)
+
+
         while not self.end:
             self.msleep(30)
 
-            ret, frame = self.capture.read()
+            if self.viaCamera:
+                ret, frame = self.capture.read()
+            else:
+                ret = True
+                with mss() as sct:
+                    # Get a screenshot of the monitor
+                    monitor = sct.monitors[monitor_id]
+                    width = monitor['width']
+                    height = monitor['height']
+                    screenshot = sct.grab(sct.monitors[monitor_id])
 
             if ret:
-                # Convert the frame to RGB format
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                if self.viaCamera:
+                    # Convert the frame to RGB format
+                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-                # Create a QImage from the frame data
-                height, width, channel = frame.shape
-                image = QImage(frame.data, width, height, QImage.Format_RGB888)
+                    # Create a QImage from the frame data
+                    height, width, _ = frame.shape
+                    image = QImage(frame.data, width, height, QImage.Format_RGB888)
+                else:
+                    # Convert to numpy array (BGRA format)
+                    img_data = np.frombuffer(screenshot.rgb, dtype=np.uint8)
+                    frame = img_data.reshape((screenshot.height, screenshot.width, 3))
+                    
+                    # Add an alpha channel to convert RGB to RGBA
+                    alpha_channel = np.full((height, width, 1), 255, dtype=np.uint8)  # Fully opaque
+                    img_data = np.concatenate([frame, alpha_channel], axis=2)  # Append alpha
+
+                    # Convert RGB to RGBA (ensure correct channel order for QImage)
+                    img_data = img_data[:, :, [0, 1, 2, 3]]  # Already in correct order, but explicit for clarity
+
+                    img_data = np.ascontiguousarray(img_data)
+                    
+                    # Create QImage from the data
+                    image = QImage(
+                        img_data.data,
+                        screenshot.width,
+                        screenshot.height,
+                        screenshot.width * 4,  # Bytes per line
+                        QImage.Format_RGBA8888
+                    )
+                    
+                    # Ensure the data is not garbage-collected
+                    image.ndarray = img_data
 
                 # Create a QPixmap from the QImage
                 pixmap = QPixmap.fromImage(image)
@@ -465,7 +525,10 @@ class ReadQR(QThread):
         self.parent.ui.read_progress.setValue(0)
         self.parent.ui.read_progress.setVisible(False)
         self.parent.ui.read_progress.setFormat('')
-        self.parent.ui.btn_start_read.setText('Start read')
+        self.parent.ui.btn_start_read.setText(' '.join(self.parent.ui.btn_start_read.text().split(' ')[:-1]) + START_READ_TXT)
+        self.parent.ui.btn_start_read_monitor.setText(' '.join(self.parent.ui.btn_start_read_monitor.text().split(' ')[:-1]) + START_READ_TXT)
+        self.parent.ui.monitor_group.setDisabled(False)
+        self.parent.ui.camera_group.setDisabled(False)
 
 
 class DisplayQR(QThread):
@@ -535,14 +598,16 @@ class MainWindow(QMainWindow):
         ui_file.open(QFile.ReadOnly)
         self.ui = loader.load(ui_file, self)
         ui_file.close()
-        self.setWindowTitle("SeedQReader")
-        self.setFixedSize(812,670)
+        self.setWindowTitle("SeedQReader " + VERSION)
+        self.setWindowIcon(QIcon('assets/icon.png'))
+        self.setFixedSize(self.ui.tabWidget.width(),self.ui.tabWidget.height())
 
         self.setCentralWidget(self.ui)
 
         self.load_config()
 
-        self.ui.btn_start_read.clicked.connect(self.on_qr_read)
+        self.ui.btn_start_read.clicked.connect(self.on_qr_read_camera)
+        self.ui.btn_start_read_monitor.clicked.connect(self.on_qr_read_monitor)
         self.ui.btn_generate.clicked.connect(self.on_btn_generate)
         self.ui.btn_clear.clicked.connect(self.on_btn_clear)
         self.ui.send_slider.valueChanged.connect(self.on_slider_move)
@@ -585,10 +650,12 @@ class MainWindow(QMainWindow):
         self.data_type = None
 
         self.ui.btn_camera_update.clicked.connect(self.on_camera_update)
+        self.ui.btn_monitor_update.clicked.connect(self.on_monitor_update)
 
         self.on_slider_move()
         self.on_delay_slider_move()
         self.on_camera_update()
+        self.on_monitor_update()
 
         self.init_qr()
 
@@ -637,6 +704,27 @@ class MainWindow(QMainWindow):
                     continue
 
         return available_cameras
+    
+    @staticmethod
+    def list_available_monitors():
+        with mss() as sct:
+            return [str(i) for i in list(range(len(sct.monitors)-1))]
+        
+    def on_monitor_update(self):
+        last = self.get_monitor_id()
+
+        monitors = self.list_available_monitors()
+        self.ui.combo_monitor.clear()
+        self.ui.combo_monitor.addItems(monitors)
+        if last and str(last) in monitors:
+            self.ui.combo_type.setCurrentText(str(last))
+
+    def get_monitor_id(self) -> int | None:
+        try:
+            id = self.ui.combo_monitor.currentText()
+            return int(id)
+        except :
+            return None
 
     def get_camera_id(self) -> int | None:
         try:
@@ -675,6 +763,14 @@ class MainWindow(QMainWindow):
             frame.fill(QColor(FILL_COLOR))
         
         self.ui.video_out.setPixmap(frame)
+
+    def on_qr_read_camera(self):
+        self.read_qr.viaCamera = True
+        self.on_qr_read()
+
+    def on_qr_read_monitor(self):
+        self.read_qr.viaCamera = False
+        self.on_qr_read()
 
     def on_qr_read(self):
         if not self.read_qr.isRunning():

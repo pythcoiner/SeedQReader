@@ -30,6 +30,10 @@ from platform import system
 import argparse
 import PyInstaller.building.makespec
 
+import sys
+sys.path.append(".")
+from seedqreader import VERSION
+
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     PyInstaller.building.makespec.__add_options(p)
@@ -54,7 +58,7 @@ if __name__ == "__main__":
     BUILDER_ARGS = [ ]
 
     # The app name
-    BUILDER_ARGS.append(f"--name={PYNAME}")
+    BUILDER_ARGS.append(f"--name={PYNAME}_{VERSION}")
 
     # The application has window
     BUILDER_ARGS.append("--windowed")
@@ -122,4 +126,4 @@ if __name__ == "__main__":
         print(f"{k}: {v}")
 
     print()
-    PyInstaller.building.makespec.main(["seedqreader.py"], **vars(args))
+    PyInstaller.building.makespec.main([PYFILE], **vars(args))

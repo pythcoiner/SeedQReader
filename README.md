@@ -71,8 +71,9 @@ python seedqreader.py
 
 ```
 pip install PyInstaller
+rm seedqreader_*.spec
 python3 .ci/create-spec.py
-python3 -m PyInstaller seedqreader.spec
+python3 -m PyInstaller seedqreader_*.spec
 ```
 
 ## Acknowledgements & Alternatives

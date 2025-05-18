@@ -6,3 +6,5 @@ qrcode==8.1
 opencv-python==4.11.0.86
 urtypes==1.0.0
 embit==0.8.0
+mss==10.0.0
+numpy==2.2.6
